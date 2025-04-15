@@ -30,38 +30,94 @@ async function run() {
     const menuCollection = client.db("BistroDb").collection("menu");
     const reviewCollection = client.db("BistroDb").collection("reviews");
     const cartCollection = client.db("BistroDb").collection("carts");
+//for load ta to using tanstack query to the allUser component
+    app.get('/Users', async(req, res) => {
+      const result = await userCollection.find().toArray();
+      res.send(result)
+    })
 
+    
+    app.patch('/users/admin/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter= {_id: new ObjectId(id)};
+      const updateDoc = {
+        $set: {
+          plot: 'admin'
+        },
+      };
+      const result = await userCollection.updateOne(filter, updateDoc);
+      res.send(result)
+    });
+    
+
+
+
+
+
+    app.delete('/users/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)};
+      const result = await userCollection.deleteOne(query);
+      res.send(result);
+    });
+    
+
+    
+    
+    
+    //menu related apis
     app.get('/menu', async(req, res) => {
         const result = await menuCollection.find().toArray();
         res.send(result)
-
-        
       })
-    app.get('/reviews', async(req, res) => {
+        
+      
+    
+    
+      app.get('/reviews', async(req, res) => {
         const result = await  reviewCollection.find().toArray();
         res.send(result)
       })
 
 
 
-     //for save the user onfo to the database  
+     
+     
+     
+      //for save the user onfo to the database  
     app.post('/users', async(req, res) => {
+
       const user = req.body;
+      //insert email if the user do not exists
+      //do this in many ways like(1. email unique 2.upsert 3.simple checking)
+      const query = {email:user.email} 
+      const existingUser = await userCollection.findOne(query);
+    if(existingUser){
+      return res.send({message:"user is already exists",insertedId:null})
+    }
+
         const result = await userCollection.insertOne(user);
         res.send(result)
       })
+
+
 
 //cart collection
 
 
 
-//for showing the added cart to the navbar badge
+
+// for showing the added cart to the navbar badge
 app.get('/carts', async (req, res) => {
   const email = req.query.email;
   const query = { email: email };
   const result = await cartCollection.find(query).toArray();
   res.send(result);
 });
+
+
+
+
 
 //delete operation
 app.delete('/carts/:id', async (req, res) => {
