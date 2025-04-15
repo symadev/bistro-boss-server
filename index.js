@@ -1,4 +1,4 @@
-const express = require('express')
+const express =require('express') 
 const cors = require('cors')
 const app = express()
 require('dotenv').config()
@@ -9,7 +9,7 @@ app.use (cors());
 app.use (express.json());
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.cn4mz.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -26,16 +26,68 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
-
+    const userCollection = client.db("BistroDb").collection("users");
     const menuCollection = client.db("BistroDb").collection("menu");
     const reviewCollection = client.db("BistroDb").collection("reviews");
+    const cartCollection = client.db("BistroDb").collection("carts");
 
     app.get('/menu', async(req, res) => {
         const result = await menuCollection.find().toArray();
         res.send(result)
+
+        
       })
     app.get('/reviews', async(req, res) => {
         const result = await  reviewCollection.find().toArray();
+        res.send(result)
+      })
+
+
+
+     //for save the user onfo to the database  
+    app.post('/users', async(req, res) => {
+      const user = req.body;
+        const result = await userCollection.insertOne(user);
+        res.send(result)
+      })
+
+//cart collection
+
+
+
+//for showing the added cart to the navbar badge
+app.get('/carts', async (req, res) => {
+  const email = req.query.email;
+  const query = { email: email };
+  const result = await cartCollection.find(query).toArray();
+  res.send(result);
+});
+
+//delete operation
+app.delete('/carts/:id', async (req, res) => {
+  const id = req.params.id;
+  const query = {_id: new ObjectId(id)};
+  const result = await cartCollection.deleteOne(query);
+  res.send(result);
+});
+
+
+
+
+// after that-->now create the api data to the server
+
+//-->now this data we upload using axios the client sigh
+//we load data through client sight using a component
+
+// TanStack Query হলো একধরনের data-fetching library, যা React, Vue, Svelte
+//  ইত্যাদি ফ্রেমওয়ার্কের সাথে কাজ করে। এটি API থেকে ডেটা আনা, ক্যাশে করা,
+// রিফ্রেশ করা এবং সেসব ডেটার উপর কাজ করা অনেক সহজ করে তোলে।
+
+
+
+    app.post('/carts', async(req, res) => {
+      const cartItem = req.body;
+        const result = await  cartCollection.insertOne( cartItem);
         res.send(result)
       })
       
