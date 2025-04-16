@@ -1,6 +1,7 @@
 const express =require('express') 
 const cors = require('cors')
 const app = express()
+const jwt = require('jsonwebtoken');
 require('dotenv').config()
 const port = process.env.PORT || 5000;
 
@@ -30,19 +31,48 @@ async function run() {
     const menuCollection = client.db("BistroDb").collection("menu");
     const reviewCollection = client.db("BistroDb").collection("reviews");
     const cartCollection = client.db("BistroDb").collection("carts");
-//for load ta to using tanstack query to the allUser component
-    app.get('/Users', async(req, res) => {
+
+//jwt related api
+app.post('/jwt', async(req, res) => {
+  const user = req.body;
+  const token = jwt.sign(user,process.env.ACCESS_TOKEN_SECRET,{
+     expiresIn: '1h'
+  })
+  res.send({token})
+})
+
+//middleware process
+const verifyToken = (req,res, next)=>{
+  console.log( 'inside verify token',req.headers);
+  if(!req.headers.authorization){
+    return res.status(401).send({message:'forbidden access'})
+  }
+  const token = req.headers.authorization.split(' ')[1];
+  // next();
+}
+
+
+
+
+
+// Middleware হলো এমন একটা ফাংশন বা প্রক্রিয়া, যেটা একটি অনুরোধ (request)
+//  সার্ভারে যাওয়ার আগে বা সার্ভার থেকে উত্তর (response) ফেরত দেওয়ার আগে কাজ করে।
+
+    //for load ta to using tanstack query to the allUser component
+    //user related api
+    app.get('/Users',verifyToken, async(req, res) => {
+     
       const result = await userCollection.find().toArray();
       res.send(result)
     })
 
-    
+    //for admin pannel
     app.patch('/users/admin/:id', async (req, res) => {
       const id = req.params.id;
       const filter= {_id: new ObjectId(id)};
       const updateDoc = {
         $set: {
-          plot: 'admin'
+          role: 'admin'
         },
       };
       const result = await userCollection.updateOne(filter, updateDoc);
@@ -53,7 +83,7 @@ async function run() {
 
 
 
-
+//delete data from admin pannel
     app.delete('/users/:id', async (req, res) => {
       const id = req.params.id;
       const query = {_id: new ObjectId(id)};
@@ -140,7 +170,7 @@ app.delete('/carts/:id', async (req, res) => {
 // রিফ্রেশ করা এবং সেসব ডেটার উপর কাজ করা অনেক সহজ করে তোলে।
 
 
-
+//cart insertion
     app.post('/carts', async(req, res) => {
       const cartItem = req.body;
         const result = await  cartCollection.insertOne( cartItem);
