@@ -35,21 +35,43 @@ async function run() {
 //jwt related api
 app.post('/jwt', async(req, res) => {
   const user = req.body;
-  const token = jwt.sign(user,process.env.ACCESS_TOKEN_SECRET,{
+  const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
      expiresIn: '1h'
-  })
-  res.send({token})
-})
+  });
+  res.send({ token });
+});
 
 //middleware process
 const verifyToken = (req,res, next)=>{
-  console.log( 'inside verify token',req.headers);
+  console.log( 'inside verify token',req.headers.authorization);
   if(!req.headers.authorization){
-    return res.status(401).send({message:'forbidden access'})
+    return res.status(401).send({message:'unauthorized access'})
   }
   const token = req.headers.authorization.split(' ')[1];
-  // next();
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded)=> {
+    if(err){
+      return res.status(401).send({message:'unauthorized access'})
+    }
+    req.decoded=decoded;
+    next(); // bar
+  });
+  
 }
+
+
+//user varifyadmin after varify token 
+
+const verifyAdmin =async (req,res, next)=>{
+  const email = req.decoded.email;
+  const query = {email:email}
+  const user = await userCollection.findOne(query);
+  const isAdmin = user?.role === 'admin';
+  if(!isAdmin){
+    return res.status(403).send({message:'forbidden  access'});
+  }
+next();
+}
+
 
 
 
@@ -60,14 +82,39 @@ const verifyToken = (req,res, next)=>{
 
     //for load ta to using tanstack query to the allUser component
     //user related api
-    app.get('/Users',verifyToken, async(req, res) => {
+    app.get('/users',  async (req, res) => {
      
       const result = await userCollection.find().toArray();
       res.send(result)
     })
+    
+    
+    
+    
+    
+   //we check here that the requested user is actually the  token user or not  
+    app.get('/users/admin/:email', verifyToken, async (req, res) => {
+     
+      const email = req.params.email;
+      if(email!== req.decoded.email){
+        return res.status(403).send ({message:'forbidden access'})
+      }
+      const query = {email:email};
+      const user = await userCollection .findOne( query)
+      let admin = false;
+      if (user){
+        admin = user?.role === 'admin';
 
+      }
+      res.send({admin});
+    })
+
+    
+    
+    
+    
     //for admin pannel
-    app.patch('/users/admin/:id', async (req, res) => {
+    app.patch('/users/admin/:id', verifyToken,verifyAdmin,  async (req, res) => {
       const id = req.params.id;
       const filter= {_id: new ObjectId(id)};
       const updateDoc = {
@@ -78,13 +125,18 @@ const verifyToken = (req,res, next)=>{
       const result = await userCollection.updateOne(filter, updateDoc);
       res.send(result)
     });
+
+
+
+    //confirmation of the specific admin
+    //for confirm the admin must check the admin
     
 
 
 
 
 //delete data from admin pannel
-    app.delete('/users/:id', async (req, res) => {
+    app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = {_id: new ObjectId(id)};
       const result = await userCollection.deleteOne(query);
