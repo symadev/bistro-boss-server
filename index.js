@@ -203,12 +203,12 @@ async function run() {
 
 
 
+
+
+
+
     //confirmation of the specific admin
     //for confirm the admin must check the admin
-
-
-
-
 
     //delete data from admin pannel
     app.delete('/users/:id', verifyToken, verifyAdmin, async (req, res) => {
@@ -219,6 +219,10 @@ async function run() {
     });
 
 
+
+
+
+
     //for delete the manageitem cart  uhich is deleted by specific user like admin
     app.delete('/menu/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
@@ -227,6 +231,11 @@ async function run() {
       res.send(result);
     });
 
+
+
+
+
+
     //for update the cart 
     app.get('/menu/:id', async (req, res) => {
       const id = req.params.id;
@@ -234,6 +243,11 @@ async function run() {
       const result = await menuCollection.findOne(query);
       res.send(result);
     });
+
+
+
+
+
 
 
     //update the manageItem 
@@ -348,6 +362,82 @@ async function run() {
     })
 
 
+
+    // for the analytics
+
+    app.get('/admin-stats', verifyToken,verifyAdmin,async(req, res) => {
+      const users = await userCollection.estimatedDocumentCount()
+      const menuItems = await menuCollection.estimatedDocumentCount()
+      const orders = await paymentCollection.estimatedDocumentCount()
+      //this is npt the best way
+
+      // const payments = await paymentCollection.find().toArray()
+      // const revenue = payments.reduce((total,payment)=>total+payment.price,0);
+
+      const result = await paymentCollection.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: "$price" }
+          }
+        }
+      ]).toArray();
+      
+      const revenue = result.length >0 ?result[0].totalRevenue : 0;
+      console.log( revenue);
+      
+
+
+
+
+      res.send({
+        users,
+        menuItems,
+        orders,
+        revenue,
+      })
+    })
+
+
+//this is the aggregate pipeline
+    app.get('/order-stats',verifyToken, verifyAdmin,  async (req, res) => {
+    
+        const result = await paymentCollection.aggregate([
+          {
+            $unwind: '$menuItemIds' // flatten the menuItemsId array
+          },
+          {
+            $lookup: {
+              from: 'menu', // collection name in MongoDB
+              localField: 'menuItemIds',
+              foreignField: '_id',
+              as: 'menuItems'
+            }
+          },
+          {
+            $unwind: '$menuItems'
+          },
+          {
+            $group: {
+              _id: '$menuItems.category',
+              quantity: { $sum: 1 },
+              Revenue: { $sum: '$menuItems.price' }
+            }
+          },
+          {
+            $project: {
+              _id: 0,
+              category: '$_id',
+              quantity: 1,
+              Revenue: 1
+            }
+          }
+        ]).toArray();
+    
+        res.send(result);
+      
+    });
+    
 
 
 
